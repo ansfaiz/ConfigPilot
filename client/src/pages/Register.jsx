@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../AuthContext';
 import api from '../api';
 
@@ -18,16 +19,21 @@ export default function Register() {
     e.preventDefault();
     setError('');
     if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      const msg = 'Password must be at least 6 characters';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', form);
+      const { data } = await api.post('/auth/register', form, { skipToast: true });
       login(data.token, data.user);
+      toast.success('Account created!');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      const msg = err.response?.data?.error || 'Registration failed. Please try again.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

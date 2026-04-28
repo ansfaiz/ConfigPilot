@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 // fields: [{ name, label, type, required, placeholder, options }]
 // type can be: text, email, number, textarea, select, checkbox
 
-export default function DynamicForm({ fields = [], onSubmit, loading, submitLabel = 'Submit' }) {
+export default function DynamicForm({ fields = [], onSubmit, onValidationError, loading, submitLabel = 'Submit' }) {
   const normalizedFields = useMemo(
     () => fields.filter((field) => field?.name).map((field) => ({
       ...field,
@@ -50,6 +50,7 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      onValidationError?.(errs);
       return;
     }
     onSubmit?.(values);

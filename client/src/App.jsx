@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
 import { ProtectedRoute, GuestRoute } from './RouteGuards';
@@ -9,9 +8,6 @@ import Dashboard from './pages/Dashboard';
 import './index.css';
 
 export default function App() {
-  useEffect(() => {
-  }, []);
-
   return (
     <AuthProvider>
       <BrowserRouter>

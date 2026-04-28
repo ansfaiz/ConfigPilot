@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../AuthContext';
 import api from '../api';
 import DynamicForm from '../components/DynamicForm';
@@ -144,20 +145,14 @@ export default function Dashboard() {
   const [records, setRecords] = useState([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  function showToast(msg, type = 'success') {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }
 
   const fetchRecords = useCallback(async (mod) => {
     setRecordsLoading(true);
     try {
-      const { data } = await api.get('/records', { params: { module: mod } });
+      const { data } = await api.get('/records', { params: { module: mod }, skipToast: true });
       setRecords(data.records);
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to load records', 'error');
+      toast.error(err.response?.data?.error || 'Failed to load records');
     } finally {
       setRecordsLoading(false);
     }
@@ -171,12 +166,17 @@ export default function Dashboard() {
 
   function applyConfig() {
     const { config: parsed, error } = parseConfig(configText);
-    if (error) { setConfigError(error); return; }
+    if (error) {
+      setConfigError(error);
+      toast.error(error);
+      return;
+    }
     setConfigError(null);
     setConfigValidMessage('Config is valid and applied.');
     setConfig(parsed);
     setRecords([]);
     fetchRecords(parsed.module);
+    toast.success('Config applied.');
   }
 
   function validateConfigOnly() {
@@ -184,10 +184,12 @@ export default function Dashboard() {
     if (error) {
       setConfigError(error);
       setConfigValidMessage('');
+      toast.error(error);
       return;
     }
     setConfigError(null);
     setConfigValidMessage('Looks good. JSON structure is valid.');
+    toast.success('Config looks valid.');
   }
 
   function applyTemplate(templateConfig) {
@@ -197,17 +199,17 @@ export default function Dashboard() {
     setConfigError(null);
     setConfigValidMessage('');
     fetchRecords(templateConfig.module);
-    showToast(`Template loaded: ${templateConfig.title || templateConfig.module}`);
+    toast.success(`Template loaded: ${templateConfig.title || templateConfig.module}`);
   }
 
   async function handleFormSubmit(values) {
     setSubmitLoading(true);
     try {
-      await api.post('/records', { module: config.module, data: values });
-      showToast('Record saved!');
+      await api.post('/records', { module: config.module, data: values }, { skipToast: true });
+      toast.success('Record saved!');
       fetchRecords(config.module);
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to save', 'error');
+      toast.error(err.response?.data?.error || 'Failed to save');
     } finally {
       setSubmitLoading(false);
     }
@@ -217,11 +219,11 @@ export default function Dashboard() {
     const confirmed = window.confirm('Delete this record permanently? This action cannot be undone.');
     if (!confirmed) return;
     try {
-      await api.delete(`/records/${id}`);
+      await api.delete(`/records/${id}`, { skipToast: true });
       setRecords((prev) => prev.filter((r) => r.id !== id));
-      showToast('Record deleted');
+      toast.success('Record deleted');
     } catch (err) {
-      showToast(err.response?.data?.error || 'Delete failed', 'error');
+      toast.error(err.response?.data?.error || 'Delete failed');
     }
   }
 
@@ -346,6 +348,7 @@ export default function Dashboard() {
                   key={JSON.stringify(formBlock.fields || [])}
                   fields={formBlock.fields}
                   onSubmit={handleFormSubmit}
+                  onValidationError={() => toast.error('Please fix the highlighted fields.')}
                   loading={submitLoading}
                   submitLabel={`Save ${config.title || config.module}`}
                 />
@@ -391,13 +394,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {toast && (
-        <div
-          className={`toast ${toast.type === 'error' ? 'toast-error' : 'toast-success'}`}
-        >
-          {toast.msg}
-        </div>
-      )}
     </div>
   );
 }

@@ -12,9 +12,11 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem('cp_token');
     if (!token) return;
 
-    api.get('/auth/me')
+    api.get('/auth/me', { skipToast: true })
       .then(({ data }) => setUser(data.user))
-      .catch(() => localStorage.removeItem('cp_token'))
+      .catch(() => {
+        localStorage.removeItem('cp_token');
+      })
       .finally(() => setLoading(false));
   }, []);
 
