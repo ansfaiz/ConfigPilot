@@ -314,7 +314,7 @@ The project covers the full lifecycle: auth, API design, database modeling, dyna
 
 ## 👤 Author
 
-**Your Name**
+**Md Faiyaz Ansari**
 Full-Stack Developer
 
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/ansfaiz)
