@@ -7,21 +7,43 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
 *.local
+
+# Runtime/cache files
+.cache/
+.eslintcache
+*.pid
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.cursor
 node_modules/
+client/node_modules/
+server/node_modules/
+dist/
 .env
-/Users/cortane/Desktop/project_Full_stack/ConfigPilot /server/node_modules

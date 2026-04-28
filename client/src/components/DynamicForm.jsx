@@ -1,20 +1,29 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 // fields: [{ name, label, type, required, placeholder, options }]
 // type can be: text, email, number, textarea, select, checkbox
 
 export default function DynamicForm({ fields = [], onSubmit, loading, submitLabel = 'Submit' }) {
+  const normalizedFields = useMemo(
+    () => fields.filter((field) => field?.name).map((field) => ({
+      ...field,
+      label: field.label || field.name,
+      type: field.type || 'text',
+    })),
+    [fields]
+  );
+
   const [values, setValues] = useState(() =>
-    fields.reduce((acc, f) => {
-      acc[f.name] = f.type === 'checkbox' ? false : '';
+    normalizedFields.reduce((acc, field) => {
+      acc[field.name] = field.type === 'checkbox' ? false : '';
       return acc;
     }, {})
   );
   const [errors, setErrors] = useState({});
 
-  if (!Array.isArray(fields) || fields.length === 0) {
+  if (normalizedFields.length === 0) {
     return (
-      <div style={{ color: 'var(--color-muted)', fontSize: '0.85rem', padding: '1rem 0' }}>
+      <div className="empty-message">
         No fields configured for this form.
       </div>
     );
@@ -22,7 +31,7 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
 
   function validate() {
     const errs = {};
-    fields.forEach((f) => {
+    normalizedFields.forEach((f) => {
       if (f.required && !values[f.name] && values[f.name] !== false) {
         errs[f.name] = `${f.label || f.name} is required`;
       }
@@ -47,9 +56,9 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {fields.map((field) => (
-        <div key={field.name}>
+    <form onSubmit={handleSubmit} className="form-grid">
+      {normalizedFields.map((field) => (
+        <div key={field.name} className={field.type === 'checkbox' ? 'field-row field-row-full' : 'field-row'}>
           {field.type !== 'checkbox' && (
             <label className="label" htmlFor={`field-${field.name}`}>
               {field.label || field.name}
@@ -66,7 +75,7 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
               onChange={handleChange}
               placeholder={field.placeholder || ''}
               rows={4}
-              style={{ resize: 'vertical' }}
+              style={{ resize: 'vertical', minHeight: 112 }}
             />
           ) : field.type === 'select' ? (
             <select
@@ -84,16 +93,15 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
               ))}
             </select>
           ) : field.type === 'checkbox' ? (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+            <label className="checkbox-row">
               <input
                 id={`field-${field.name}`}
                 type="checkbox"
                 name={field.name}
                 checked={!!values[field.name]}
                 onChange={handleChange}
-                style={{ accentColor: 'var(--color-primary)', width: 16, height: 16 }}
               />
-              <span style={{ color: 'var(--color-text)' }}>{field.label || field.name}</span>
+              <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{field.label || field.name}</span>
             </label>
           ) : (
             <input
@@ -108,11 +116,7 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
             />
           )}
 
-          {errors[field.name] && (
-            <span style={{ color: 'var(--color-danger)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-              {errors[field.name]}
-            </span>
-          )}
+          {errors[field.name] && <span className="field-error">{errors[field.name]}</span>}
         </div>
       ))}
 
@@ -121,9 +125,14 @@ export default function DynamicForm({ fields = [], onSubmit, loading, submitLabe
         type="submit"
         className="btn btn-primary"
         disabled={loading}
-        style={{ alignSelf: 'flex-start', minWidth: 100 }}
+        style={{ alignSelf: 'flex-start', minWidth: 170 }}
       >
-        {loading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : submitLabel}
+        {loading ? (
+          <>
+            <span className="spinner spinner-sm" />
+            Saving...
+          </>
+        ) : submitLabel}
       </button>
     </form>
   );

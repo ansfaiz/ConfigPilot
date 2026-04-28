@@ -31,6 +31,97 @@ const DEFAULT_CONFIG = {
   ],
 };
 
+const MODULE_TEMPLATES = [
+  { name: 'Contacts CRM', config: DEFAULT_CONFIG },
+  {
+    name: 'Task Manager',
+    config: {
+      module: 'tasks',
+      title: 'Tasks',
+      blocks: [
+        {
+          type: 'form',
+          fields: [
+            { name: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Release sprint v3' },
+            { name: 'assignee', label: 'Assignee', type: 'text', placeholder: 'Team member name' },
+            { name: 'priority', label: 'Priority', type: 'select', options: ['Low', 'Medium', 'High'] },
+            { name: 'due_date', label: 'Due Date', type: 'date' },
+            { name: 'completed', label: 'Completed', type: 'checkbox' },
+          ],
+        },
+        {
+          type: 'table',
+          columns: [
+            { key: 'title', label: 'Title' },
+            { key: 'assignee', label: 'Assignee' },
+            { key: 'priority', label: 'Priority' },
+            { key: 'due_date', label: 'Due Date' },
+            { key: 'completed', label: 'Done' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: 'Product Inventory',
+    config: {
+      module: 'products',
+      title: 'Products',
+      blocks: [
+        {
+          type: 'form',
+          fields: [
+            { name: 'name', label: 'Product Name', type: 'text', required: true, placeholder: 'Noise-canceling Headphones' },
+            { name: 'sku', label: 'SKU', type: 'text', required: true, placeholder: 'PRD-1024' },
+            { name: 'price', label: 'Price', type: 'number', required: true, placeholder: '99.99' },
+            { name: 'stock', label: 'Stock', type: 'number', placeholder: '35' },
+            { name: 'active', label: 'Active Listing', type: 'checkbox' },
+          ],
+        },
+        {
+          type: 'table',
+          columns: [
+            { key: 'name', label: 'Name' },
+            { key: 'sku', label: 'SKU' },
+            { key: 'price', label: 'Price' },
+            { key: 'stock', label: 'Stock' },
+            { key: 'active', label: 'Status' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    name: 'Leads Tracker',
+    config: {
+      module: 'leads',
+      title: 'Leads',
+      blocks: [
+        {
+          type: 'form',
+          fields: [
+            { name: 'company', label: 'Company', type: 'text', required: true, placeholder: 'Acme Inc.' },
+            { name: 'contact_name', label: 'Contact Name', type: 'text', required: true, placeholder: 'Taylor Smith' },
+            { name: 'stage', label: 'Stage', type: 'select', options: ['New', 'Qualified', 'Proposal', 'Closed'] },
+            { name: 'source', label: 'Source', type: 'text', placeholder: 'LinkedIn' },
+            { name: 'hot_lead', label: 'Hot Lead', type: 'checkbox' },
+          ],
+        },
+        {
+          type: 'table',
+          columns: [
+            { key: 'company', label: 'Company' },
+            { key: 'contact_name', label: 'Contact' },
+            { key: 'stage', label: 'Stage' },
+            { key: 'source', label: 'Source' },
+            { key: 'hot_lead', label: 'Hot Lead' },
+          ],
+        },
+      ],
+    },
+  },
+];
+
 function parseConfig(raw) {
   try {
     const parsed = JSON.parse(raw);
@@ -47,7 +138,8 @@ export default function Dashboard() {
   const [configText, setConfigText] = useState(() => JSON.stringify(DEFAULT_CONFIG, null, 2));
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [configError, setConfigError] = useState(null);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(true);
+  const [configValidMessage, setConfigValidMessage] = useState('');
 
   const [records, setRecords] = useState([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -64,25 +156,48 @@ export default function Dashboard() {
     try {
       const { data } = await api.get('/records', { params: { module: mod } });
       setRecords(data.records);
-    } catch {
-      showToast('Failed to load records', 'error');
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Failed to load records', 'error');
     } finally {
       setRecordsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (config?.module) fetchRecords(config.module);
+    if (config?.module) {
+      Promise.resolve().then(() => fetchRecords(config.module));
+    }
   }, [config?.module, fetchRecords]);
 
   function applyConfig() {
     const { config: parsed, error } = parseConfig(configText);
     if (error) { setConfigError(error); return; }
     setConfigError(null);
+    setConfigValidMessage('Config is valid and applied.');
     setConfig(parsed);
     setRecords([]);
-    setConfigOpen(false);
     fetchRecords(parsed.module);
+  }
+
+  function validateConfigOnly() {
+    const { error } = parseConfig(configText);
+    if (error) {
+      setConfigError(error);
+      setConfigValidMessage('');
+      return;
+    }
+    setConfigError(null);
+    setConfigValidMessage('Looks good. JSON structure is valid.');
+  }
+
+  function applyTemplate(templateConfig) {
+    const nextText = JSON.stringify(templateConfig, null, 2);
+    setConfigText(nextText);
+    setConfig(templateConfig);
+    setConfigError(null);
+    setConfigValidMessage('');
+    fetchRecords(templateConfig.module);
+    showToast(`Template loaded: ${templateConfig.title || templateConfig.module}`);
   }
 
   async function handleFormSubmit(values) {
@@ -99,12 +214,14 @@ export default function Dashboard() {
   }
 
   async function handleDelete(id) {
+    const confirmed = window.confirm('Delete this record permanently? This action cannot be undone.');
+    if (!confirmed) return;
     try {
       await api.delete(`/records/${id}`);
       setRecords((prev) => prev.filter((r) => r.id !== id));
       showToast('Record deleted');
-    } catch {
-      showToast('Delete failed', 'error');
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Delete failed', 'error');
     }
   }
 
@@ -113,17 +230,10 @@ export default function Dashboard() {
   const unknownBlocks = config?.blocks?.filter((b) => b.type !== 'form' && b.type !== 'table') ?? [];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
-      {/* Navbar */}
-      <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 1.5rem', height: 56,
-        background: 'var(--color-surface)',
-        borderBottom: '1px solid var(--color-border)',
-        position: 'sticky', top: 0, zIndex: 100
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '1.1rem' }}>⚙️</span>
+    <div className="dashboard-root">
+      <header className="dashboard-nav">
+        <div className="dashboard-brand">
+          <span className="brand-icon">⚙</span>
           <span style={{ fontWeight: 700, fontSize: '0.95rem', letterSpacing: '0.02em' }}>ConfigPilot</span>
           {config?.title && (
             <>
@@ -132,22 +242,23 @@ export default function Dashboard() {
             </>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--color-muted)', fontSize: '0.8rem' }}>
-            {user?.name}
+        <div className="dashboard-nav-actions">
+          <span className="dashboard-user-pill">
+            <span className="dashboard-user-avatar">{(user?.name || 'U').slice(0, 1).toUpperCase()}</span>
+            <span>{user?.name || 'User'}</span>
           </span>
-          <button
+            <button
             id="open-config-btn"
             className="btn btn-ghost"
-            style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
             onClick={() => setConfigOpen((p) => !p)}
           >
-            {configOpen ? '✕ Close Config' : '⚡ Edit Config'}
+              {configOpen ? 'Hide Config' : 'Edit Config'}
           </button>
           <button
             id="logout-btn"
             className="btn btn-ghost"
-            style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
             onClick={logout}
           >
             Sign out
@@ -155,37 +266,56 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Config Panel */}
-      {configOpen && (
-        <div style={{
-          background: 'var(--color-surface)',
-          borderBottom: '1px solid var(--color-border)',
-          padding: '1.25rem 1.5rem'
-        }}>
-          <p style={{ color: 'var(--color-muted)', fontSize: '0.8rem', margin: '0 0 0.75rem' }}>
-            Paste a JSON config to change the module, form fields, and table columns. Changes reload records automatically.
-          </p>
+      <main className="dashboard-main">
+        <section className="dashboard-hero card">
+          <h1>{config?.title || 'Config-driven workspace'}</h1>
+          <p>ConfigPilot converts JSON module definitions into working full-stack CRUD interfaces for your team.</p>
+          <div className="template-row">
+            {MODULE_TEMPLATES.map((template) => (
+              <button
+                key={template.name}
+                className="btn btn-ghost"
+                onClick={() => applyTemplate(template.config)}
+                style={{ fontSize: '0.8rem' }}
+              >
+                {template.name}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {configOpen && (
+          <section className="card">
+            <div className="config-panel-head">
+              <h2>Config Editor</h2>
+              <span className="badge">{config?.module || 'module'}</span>
+            </div>
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
+              Edit JSON config, validate it before applying, and switch modules instantly.
+            </p>
           <textarea
             id="config-editor"
             value={configText}
             onChange={(e) => setConfigText(e.target.value)}
             spellCheck={false}
-            style={{
-              width: '100%', minHeight: 220, resize: 'vertical',
-              background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-              borderRadius: 8, padding: '0.75rem', color: 'var(--color-text)',
-              fontFamily: "'Menlo', 'Monaco', 'Consolas', monospace", fontSize: '0.8rem',
-              lineHeight: 1.6, outline: 'none'
-            }}
+            className="config-editor"
           />
           {configError && (
             <p style={{ color: 'var(--color-danger)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
               ⚠ {configError}
             </p>
           )}
-          <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+          {configValidMessage && (
+            <p style={{ color: 'var(--color-success)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
+              ✓ {configValidMessage}
+            </p>
+          )}
+          <div className="config-actions">
+            <button className="btn btn-ghost" onClick={validateConfigOnly}>
+              Validate Config
+            </button>
             <button id="apply-config-btn" className="btn btn-primary" onClick={applyConfig}>
-              Apply Config
+              Save & Apply Config
             </button>
             <button
               className="btn btn-ghost"
@@ -197,25 +327,23 @@ export default function Dashboard() {
               Reset to default
             </button>
           </div>
-        </div>
-      )}
+          </section>
+        )}
 
-      {/* Main content */}
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '2rem 1.25rem' }}>
         {!config ? (
-          <div style={{ textAlign: 'center', padding: '4rem 0' }}>
+            <div className="empty-table-state">
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🗂</div>
             <p style={{ color: 'var(--color-muted)' }}>No valid config loaded. Click "Edit Config" to paste one.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Form block */}
+          <div className="dashboard-content">
             {formBlock && (
               <section className="card">
-                <h2 style={{ margin: '0 0 1.25rem', fontSize: '1rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                <h2 style={{ margin: '0 0 1.25rem', fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)' }}>
                   Add {config.title || config.module}
                 </h2>
                 <DynamicForm
+                  key={JSON.stringify(formBlock.fields || [])}
                   fields={formBlock.fields}
                   onSubmit={handleFormSubmit}
                   loading={submitLoading}
@@ -224,28 +352,19 @@ export default function Dashboard() {
               </section>
             )}
 
-            {/* Unknown block types */}
             {unknownBlocks.map((b, i) => (
-              <div
-                key={i}
-                style={{
-                  border: '1px dashed var(--color-border)', borderRadius: 10,
-                  padding: '1rem', color: 'var(--color-muted)', fontSize: '0.85rem'
-                }}
-              >
+              <div key={i} className="unknown-block-warning">
                 ⚠ Unknown block type: <code style={{ color: 'var(--color-accent)' }}>{b.type}</code>
               </div>
             ))}
 
-            {/* Table block */}
             {tableBlock && (
               <section className="card">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+                  <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
                     {config.title || config.module} Records
                   </h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {recordsLoading && <span className="spinner" />}
                     <span style={{ color: 'var(--color-muted)', fontSize: '0.78rem' }}>
                       {records.length} {records.length === 1 ? 'entry' : 'entries'}
                     </span>
@@ -256,13 +375,14 @@ export default function Dashboard() {
                       onClick={() => fetchRecords(config.module)}
                       disabled={recordsLoading}
                     >
-                      ↻ Refresh
+                      Refresh
                     </button>
                   </div>
                 </div>
                 <DynamicTable
                   columns={tableBlock.columns}
                   rows={records}
+                  loading={recordsLoading}
                   onDelete={handleDelete}
                 />
               </section>
@@ -271,28 +391,13 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 999,
-          background: toast.type === 'error' ? 'rgba(248,113,113,0.15)' : 'rgba(74,222,128,0.15)',
-          border: `1px solid ${toast.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)'}`,
-          color: toast.type === 'error' ? 'var(--color-danger)' : 'var(--color-success)',
-          borderRadius: 10, padding: '0.75rem 1.1rem', fontSize: '0.875rem',
-          fontWeight: 600, backdropFilter: 'blur(8px)',
-          animation: 'fadeInUp 0.2s ease',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
-        }}>
+        <div
+          className={`toast ${toast.type === 'error' ? 'toast-error' : 'toast-success'}`}
+        >
           {toast.msg}
         </div>
       )}
-
-      <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

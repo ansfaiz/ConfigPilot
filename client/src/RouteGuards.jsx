@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
 export function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  useEffect(() => {
+  }, [loading, user]);
 
   if (loading) {
     return (
@@ -12,11 +15,13 @@ export function ProtectedRoute({ children }) {
     );
   }
 
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? children : <Navigate to="/" replace />;
 }
 
 export function GuestRoute({ children }) {
   const { user, loading } = useAuth();
+  useEffect(() => {
+  }, [loading, user]);
 
   if (loading) {
     return (
