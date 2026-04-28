@@ -1,15 +1,8 @@
 
 const db = require('../config/db');
 
-function debugLog(hypothesisId, location, message, data = {}) {
-  // #region agent log
-  if (typeof fetch === 'function') fetch('http://127.0.0.1:7824/ingest/54a07c34-9f4d-4230-8698-9a6304c39192',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'928544'},body:JSON.stringify({sessionId:'928544',runId:'qa-audit-server',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-}
-
 async function getRecords(req, res) {
   const { module: mod } = req.query;
-  debugLog('H9', 'dataController.js:getRecords:entry', 'Get records called', { userId: req.user?.id ?? null, module: mod ?? null });
   try {
     let query = 'SELECT * FROM records WHERE user_id=$1';
     const params = [req.user.id];
@@ -28,7 +21,6 @@ async function getRecords(req, res) {
 
 async function createRecord(req, res) {
   const { module: mod, data } = req.body;
-  debugLog('H10', 'dataController.js:createRecord:entry', 'Create record called', { userId: req.user?.id ?? null, module: mod ?? null, hasData: !!data });
   if (!mod || !data) {
     return res.status(400).json({ error: 'module and data are required' });
   }
